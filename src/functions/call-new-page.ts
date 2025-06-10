@@ -25,6 +25,19 @@ export const callNewPage = async () => {
 
 	await page.waitForSelector(CHAT_LIST_SELECTOR, { timeout: 60000 });
 	console.log("Login efetuado com sucesso!");
+
+	const selectorTitulos = `${CHAT_LIST_SELECTOR} ${CONVERSATION_TITLE_SELECTOR}`;
+	await page.waitForSelector(selectorTitulos);
+
+	// Loop para verredura constate
+	while (true) {
+		const conversationTitles = await page.$$eval(selectorTitulos, elements => elements.map(e => e.textContent?.trim() || ""));
+		console.log("Títulos das conversas:", conversationTitles);
+		const numConversations = conversationTitles.length;
+		console.log(`${numConversations} conversas encontradas. A iniciar o processo de extração...`);
+
+		await new Promise(resolve => setTimeout(resolve, 2000));
+	}
 };
 
 
