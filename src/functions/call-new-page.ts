@@ -1,6 +1,5 @@
 import puppeteer, { Page } from "puppeteer"
 
-const INFORMATION = {}
 const CHAT_LIST_SELECTOR = "#pane-side"
 const QR_CODE_SELECTOR = "div[data-ref]"
 const CONVERSATION_TITLE_SELECTOR = 'span[dir="auto"][title]'
@@ -8,13 +7,6 @@ const SELECTOR_TITLES = `${CHAT_LIST_SELECTOR} ${CONVERSATION_TITLE_SELECTOR}`
 // Seletor do banner
 const BANNER_SELECTOR =
   'div[role="dialog"], div[data-testid="download-app-banner"], div.x1c4vz4f.xs83m0k.xdl72j9.x1g77sc7.x78zum5.xozqiw3.x1oa3qoh.x12fk4p8.xeuugli.x2lwn1j.x1qughib.x1q0g3np.x6s0dn4.xz9dl7a.x1a8lsjc.x10l6tqk.x1ey2m1c.xoz0ns6.xh8yej3.x150wa6m.x178xt8z.x13fuv20.xyj1x25'
-
-const conversations = async (page) => {
-  const conversationTitles = await page.$$eval(SELECTOR_TITLES, (elements) =>
-    elements.map((e) => e.textContent?.trim() || "")
-  )
-  console.log("Títulos das conversas:", conversationTitles)
-}
 
 // Função para fechar o banner de download do WhatsApp, se existir
 async function closeDownloadBannerIfExists(page: Page) {
@@ -64,8 +56,12 @@ export const callNewPage = async () => {
     const conversationElements = await page.$$(SELECTOR_TITLES)
     console.log(`Encontradas ${conversationElements.length} conversas.`)
 
-    for (let i = 0; i < conversationElements.length; i++) {
-      conversations(page)
+    for (let i = 0; i < 3; i++) {
+      const title = await page.evaluate(
+        (el) => el.textContent?.trim() || "",
+        conversationElements[i]
+      )
+
       const conversation = conversationElements[i]
       await conversation.click()
       // Fecha o banner de download apenas na primeira execução
@@ -80,12 +76,13 @@ export const callNewPage = async () => {
           // Busca o texto da mensagem
           let text = ""
           const textSpans = node.querySelectorAll("span.selectable-text span")
-          if (textSpans.length > 0) {
-            text = Array.from(textSpans)
+            if (textSpans.length > 0) {
+              text = Array.from(textSpans)
               .map((s) => (s as any).textContent)
               .join(" ")
+              .replace(/\s{2,}/g, " ")
               .trim()
-          }
+            }
 
           // Busca data-pre-plain-text em qualquer descendente
           let datetime = ""
@@ -106,32 +103,17 @@ export const callNewPage = async () => {
               .trim()
           }
 
-          // Fallbacks
-          if (!datetime) {
-            const meta = node.querySelector('span[data-testid="msg-meta"]')
-            if (meta && meta.textContent) {
-              datetime = meta.textContent.trim()
-            }
-          }
-          if (!sender) {
-            const senderSpan = node.querySelector('span[dir="auto"][class*=""]')
-            if (senderSpan && senderSpan.textContent) {
-              sender = senderSpan.textContent.trim()
-            }
-          }
-
-          return { text, sender, datetime }
+          return {sender, text,  datetime }
         })
       )
 
-      console.log(`Mensagens da conversa ${i + 1}:`, messages)
-      // Loga mensagens sem sender e datetime para debug
+      console.log(`Mensagens da conversa ${title}:`, messages)
 
       // Aguarda um pouco antes de ir para a próxima conversa
       await new Promise((resolve) => setTimeout(resolve, 1000))
     }
 
     // Aguarda 30 segundos antes de varrer novamente
-    await new Promise((resolve) => setTimeout(resolve, 30000))
+    // await new Promise((resolve) => setTimeout(resolve, 30000))
   }
 }
