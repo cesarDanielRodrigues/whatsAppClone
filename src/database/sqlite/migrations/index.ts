@@ -1,7 +1,7 @@
 import { sqliteConnect } from "../index.js"
 import { createConversations, createMessages } from "./createTables.js"
 
-export const migrationsRun =async ()=>{
+const migrationsRun = (async ()=>{
     const schemas  = [
         createConversations,
         createMessages
@@ -10,5 +10,5 @@ export const migrationsRun =async ()=>{
     sqliteConnect()
     .then(db=>db.exec(schemas))
     .catch(error => console.error(error))
-}
+})()
 

@@ -1,6 +1,10 @@
 import path from "path";
+import { fileURLToPath } from "url";
 import sqlite3 from "sqlite3";
-import sqlite from "sqlite";
+import * as sqlite from "sqlite";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export const sqliteConnect = async () => {
     const db = await sqlite.open({

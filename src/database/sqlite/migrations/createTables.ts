@@ -1,7 +1,7 @@
 export const createConversations = `
 CREATE TABLE IF NOT EXISTS tb_conversations (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    conversation TEXT
+    conversation TEXT UNIQUE
 );
 `
 
