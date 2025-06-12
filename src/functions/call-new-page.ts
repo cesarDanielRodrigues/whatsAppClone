@@ -24,7 +24,6 @@ const closeDownloadBannerIfExists = async (page: Page) => {
   const banner = await page.waitForSelector(BANNER_SELECTOR, { timeout: 5000 })
   if (banner) {
     await banner.hover()
-    // Buscando o último span vazio dentro do banner
     const closeBtn = await banner.$("div:last-child > span:not([data-icon])")
     if (closeBtn) {
       await closeBtn.click()
@@ -66,7 +65,7 @@ export const callNewPage = async () => {
     console.log(`Encontradas ${conversationElements.length} conversas.`)
 
     for (let i = 0; i < conversationElements.length; i++) {
-      const title = conversationTitle(page, conversationElements, i)
+      const title = await conversationTitle(page, conversationElements, i)
 
       insertTitleinTb_conversations(title)
 
@@ -84,47 +83,47 @@ export const callNewPage = async () => {
       const MESSAGE_SELECTOR = "div.message-in, div.message-out"
       const messages = await page.$$eval(MESSAGE_SELECTOR, (nodes) =>
         nodes.map((node) => {
-          let text = "";
-          let datetime = "";
-          let sender = "";
-          let prePlain = "";
+          let text = ""
+          let datetime = ""
+          let sender = ""
+          let prePlain = ""
           // Busca o texto da mensagem
-          const textSpans = node.querySelectorAll("span.selectable-text span");
+          const textSpans = node.querySelectorAll("span.selectable-text span")
           if (textSpans.length > 0) {
             text = Array.from(textSpans)
               .map((s) => (s as any).textContent)
               .join(" ")
               .replace(/\s{2,}/g, " ")
-              .trim();
+              .trim()
           } else {
-            text = "<<Mídia ou mensagem sem texto>>";
+            text = "<<Mídia ou mensagem sem texto>>"
           }
           // Busca data-pre-plain-text em qualquer descendente
-          const copyable = node.querySelector("[data-pre-plain-text]");
+          const copyable = node.querySelector("[data-pre-plain-text]")
           if (copyable) {
-            prePlain = copyable.getAttribute("data-pre-plain-text") || "";
+            prePlain = copyable.getAttribute("data-pre-plain-text") || ""
           } else {
-            prePlain = node.getAttribute("data-pre-plain-text") || "";
+            prePlain = node.getAttribute("data-pre-plain-text") || ""
           }
           if (prePlain) {
-            const timeMatch = prePlain.match(/\[(.*?)\]/);
-            datetime = timeMatch ? timeMatch[1] : "";
+            const timeMatch = prePlain.match(/\[(.*?)\]/)
+            datetime = timeMatch ? timeMatch[1] : ""
             sender = prePlain
               .replace(/\[.*?\]\s*/, "")
               .replace(":", "")
-              .trim();
+              .trim()
           }
-          return { sender, text, datetime };
+          return { sender, text, datetime }
         })
       )
 
-      console.log(`Mensagens da conversa ${title}:`, messages)
+      const { id } = await db.get("SELECT id FROM tb_conversations WHERE conversation = ?", title)
 
-      // Aguarda um pouco antes de ir para a próxima conversa
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      // Limpa as mensagens antigas da conversa antes de inserir as novas
+      await db.run("DELETE FROM tb_messages WHERE id_conversation = ?", id)
+      for (const message of messages) { 
+        await db.run("INSERT INTO tb_messages (id_conversation, sender, message, datetime) VALUES (?, ?, ?, ?)", id, message.sender, message.text, message.datetime)
+      }
     }
-
-    // Aguarda 30 segundos antes de varrer novamente
-    // await new Promise((resolve) => setTimeout(resolve, 30000))
   }
 }
