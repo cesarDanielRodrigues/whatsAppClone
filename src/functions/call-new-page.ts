@@ -78,65 +78,74 @@ const callMessages = async (page) => {
 }
 
 export const callNewPage = async () => {
-  console.log("Iniciando o browser...")
-  const browser = await puppeteer.launch({
-    headless: false,
-  })
-
-  const page = await browser.newPage()
-  // await page.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
-
-  await page.goto("https://web.whatsapp.com/")
-
-  console.log("Abrindo QR code para login...")
-  await page.waitForSelector(QR_CODE_SELECTOR, {
-    visible: true,
-    timeout: 20000,
-  })
-
-  await page.waitForSelector(CHAT_LIST_SELECTOR, { timeout: 60000 })
-  console.log("Login efetuado com sucesso!")
-
-  await page.waitForSelector(SELECTOR_TITLES)
-
-  // Loop para varredura constate
   while (true) {
-    await new Promise((resolve) => setTimeout(resolve, 2000))
+    try {
+      console.log("Iniciando o browser...")
+      const browser = await puppeteer.launch({
+        headless: false,
+      })
 
-    const conversationElements = await page.$$(SELECTOR_TITLES)
-    console.log(`Encontradas ${conversationElements.length} conversas.`)
+      const page = await browser.newPage()
+      // await page.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
 
-    for (let i = 0; i < conversationElements.length; i++) {
-      const title = await conversationTitle(page, conversationElements, i)
+      await page.goto("https://web.whatsapp.com/")
 
-      await insertTitleinTb_conversations(title)
+      console.log("Abrindo QR code para login...")
+      await page.waitForSelector(QR_CODE_SELECTOR, {
+        visible: true,
+        timeout: 20000,
+      })
 
-      // Busca novamente o elemento pelo título antes de clicar
-      const safeTitle = title.replace(/"/g, '"')
-      const conversation = await page.$(`${SELECTOR_TITLES}[title="${safeTitle}"]`)
-      if (!conversation) {
-        console.log(`Conversa com título "${title}" não encontrada para clicar.`)
-        continue
+      await page.waitForSelector(CHAT_LIST_SELECTOR, { timeout: 60000 })
+      console.log("Login efetuado com sucesso!")
+
+      await page.waitForSelector(SELECTOR_TITLES)
+
+      // Loop para varredura constate
+      while (true) {
+        await new Promise((resolve) => setTimeout(resolve, 2000))
+
+        const conversationElements = await page.$$(SELECTOR_TITLES)
+        console.log(`Encontradas ${conversationElements.length} conversas.`)
+
+        for (let i = 0; i < conversationElements.length; i++) {
+          const title = await conversationTitle(page, conversationElements, i)
+
+          await insertTitleinTb_conversations(title)
+
+          // Busca novamente o elemento pelo título antes de clicar
+          const safeTitle = title.replace(/"/g, '"')
+          const conversation = await page.$(`${SELECTOR_TITLES}[title="${safeTitle}"]`)
+          if (!conversation) {
+            console.log(`Conversa com título "${title}" não encontrada para clicar.`)
+            continue
+          }
+          await conversation.click()
+
+          // Fecha o banner de download apenas na primeira execução
+          if (i === 0) await closeDownloadBannerIfExists(page)
+
+          // Aguarda o carregamento das mensagens
+          await new Promise((resolve) => setTimeout(resolve, 1500))
+
+          // Busca o texto da mensagem
+          const getMessages = await callMessages(page)
+
+          // Busca na tb_conversations o id
+          const { id } = await db.get("SELECT id FROM tb_conversations WHERE conversation = ?", title)
+
+          // Limpa as mensagens antigas da conversa antes de inserir as novas
+          await db.run("DELETE FROM tb_messages WHERE id_conversation = ?", id)
+          for (const message of getMessages) {
+            await db.run("INSERT INTO tb_messages (id_conversation, sender, message, datetime) VALUES (?, ?, ?, ?)", id, message.sender, message.text, message.datetime)
+          }
+        }
       }
-      await conversation.click()
 
-      // Fecha o banner de download apenas na primeira execução
-      if (i === 0) await closeDownloadBannerIfExists(page)
-
-      // Aguarda o carregamento das mensagens
-      await new Promise((resolve) => setTimeout(resolve, 1500))
-
-      // Busca o texto da mensagem
-      const getMessages = await callMessages(page)
-
-      // Busca na tb_conversations o id
-      const { id } = await db.get("SELECT id FROM tb_conversations WHERE conversation = ?", title)
-
-      // Limpa as mensagens antigas da conversa antes de inserir as novas
-      await db.run("DELETE FROM tb_messages WHERE id_conversation = ?", id)
-      for (const message of getMessages) {
-        await db.run("INSERT INTO tb_messages (id_conversation, sender, message, datetime) VALUES (?, ?, ?, ?)", id, message.sender, message.text, message.datetime)
-      }
+      
+    } catch (error) {
+      console.error("Erro na automação do WhatsApp:", error)
+      await new Promise((resolve) => setTimeout(resolve, 5000))
     }
   }
 }

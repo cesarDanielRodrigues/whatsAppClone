@@ -1,9 +1,13 @@
 import fastify from "fastify";
-import { runWhatsappAutomationRoute } from "./routes/run-whatsapp-automation-route.js";
+import { callNewPage } from "./functions/call-new-page.js";
+import { getDataRoute } from "./routes/getDataRoute.js";
 
 const app = fastify();
 
-app.register(runWhatsappAutomationRoute);
+// Inicia o Whatsapp assim que o servidor iniciar
+callNewPage();
+
+app.register(getDataRoute);
 
 app.listen({ port: 3333 })
   .then(() => {
