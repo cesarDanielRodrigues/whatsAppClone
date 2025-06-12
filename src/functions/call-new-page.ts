@@ -21,7 +21,8 @@ const insertTitleinTb_conversations = async (title) => {
 
 // Função para fechar o banner de download do WhatsApp, se existir
 const closeDownloadBannerIfExists = async (page: Page) => {
-  const banner = await page.waitForSelector(BANNER_SELECTOR, { timeout: 5000 })
+  // Tenta encontrar o banner sem esperar
+  const banner = await page.$(BANNER_SELECTOR)
   if (banner) {
     await banner.hover()
     const closeBtn = await banner.$("div:last-child > span:not([data-icon])")
@@ -42,7 +43,7 @@ export const callNewPage = async () => {
   })
 
   const page = await browser.newPage()
-  await page.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+  // await page.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
 
   await page.goto("https://web.whatsapp.com/")
 
@@ -66,15 +67,20 @@ export const callNewPage = async () => {
 
     for (let i = 0; i < conversationElements.length; i++) {
       const title = await conversationTitle(page, conversationElements, i)
+      
+      await insertTitleinTb_conversations(title)
 
-      insertTitleinTb_conversations(title)
-
-      //Simulando clique nas conversas
-      const conversation = conversationElements[i]
+      // Busca novamente o elemento pelo título antes de clicar
+      const safeTitle = title.replace(/"/g, '"')
+      const conversation = await page.$(`${SELECTOR_TITLES}[title="${safeTitle}"]`)
+      if (!conversation) {
+        console.log(`Conversa com título "${title}" não encontrada para clicar.`)
+        continue
+      }
       await conversation.click()
 
       // Fecha o banner de download apenas na primeira execução
-      i === 0 ? await closeDownloadBannerIfExists(page) : null
+      if (i === 0) await closeDownloadBannerIfExists(page)
 
       // Aguarda o carregamento das mensagens
       await new Promise((resolve) => setTimeout(resolve, 1500))
@@ -121,7 +127,7 @@ export const callNewPage = async () => {
 
       // Limpa as mensagens antigas da conversa antes de inserir as novas
       await db.run("DELETE FROM tb_messages WHERE id_conversation = ?", id)
-      for (const message of messages) { 
+      for (const message of messages) {
         await db.run("INSERT INTO tb_messages (id_conversation, sender, message, datetime) VALUES (?, ?, ?, ?)", id, message.sender, message.text, message.datetime)
       }
     }
