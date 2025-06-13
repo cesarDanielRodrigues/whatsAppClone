@@ -1,2 +1,11 @@
 ###
 GET http://localhost:3333/
+
+###
+POST http://localhost:3333/send-message
+Content-Type: application/json
+
+{
+    "conversationId": 5,
+    "message": "Chegou mensagem ai ?" 
+}

@@ -10,6 +10,17 @@ const MESSAGE_SELECTOR = "div.message-in, div.message-out"
 // Seletor do banner
 const BANNER_SELECTOR = 'div[role="dialog"], div[data-testid="download-app-banner"], div.x1c4vz4f.xs83m0k.xdl72j9.x1g77sc7.x78zum5.xozqiw3.x1oa3qoh.x12fk4p8.xeuugli.x2lwn1j.x1qughib.x1q0g3np.x6s0dn4.xz9dl7a.x1a8lsjc.x10l6tqk.x1ey2m1c.xoz0ns6.xh8yej3.x150wa6m.x178xt8z.x13fuv20.xyj1x25'
 
+const messageData: { conversationId: number | null; message: string | null } = {
+  conversationId: null,
+  message: null,
+}
+export const MessageConversation = (conversationId: number, message: string) => {
+  messageData.conversationId = conversationId
+  messageData.message = message
+
+  console.log("teste")
+}
+
 const conversationTitle = async (page: Page, elements, index) => {
   const title = await page.evaluate((el) => el.textContent?.trim() || "", elements[index])
   return title
@@ -99,50 +110,97 @@ export const callNewPage = async () => {
       await page.waitForSelector(CHAT_LIST_SELECTOR, { timeout: 60000 })
       console.log("Login efetuado com sucesso!")
 
-      await page.waitForSelector(SELECTOR_TITLES)
-
-      // Loop para varredura constate
       while (true) {
-        await new Promise((resolve) => setTimeout(resolve, 2000))
+        await page.waitForSelector(SELECTOR_TITLES)
+        let verificationOfMessage = messageData.message === null
 
-        const conversationElements = await page.$$(SELECTOR_TITLES)
-        console.log(`Encontradas ${conversationElements.length} conversas.`)
+        /*if (!verificationOfMessage) {
+          try {
+            console.log("Tentando enviar mensagem...")
 
-        for (let i = 0; i < conversationElements.length; i++) {
-          const title = await conversationTitle(page, conversationElements, i)
+            // Scrolla para o topo da lista de conversas
+            await page.evaluate((selector) => {
+              const chatList = document.querySelector(selector);
+              if (chatList) {
+                chatList.scrollTop = 0;
+              }
+            }, CHAT_LIST_SELECTOR);
 
-          await insertTitleinTb_conversations(title)
+            // Busca a conversa pelo ID
+            const conversationData = await db.get("SELECT conversation FROM tb_conversations WHERE id = ?", messageData.conversationId)
+            if (!conversationData) {
+              throw new Error(`Conversa com ID ${messageData.conversationId} não encontrada no banco de dados`)
+            }
 
-          // Busca novamente o elemento pelo título antes de clicar
-          const safeTitle = title.replace(/"/g, '"')
-          const conversation = await page.$(`${SELECTOR_TITLES}[title="${safeTitle}"]`)
-          if (!conversation) {
-            console.log(`Conversa com título "${title}" não encontrada para clicar.`)
-            continue
+            const conversationElements = await page.$$(SELECTOR_TITLES)
+
+            let count = 0
+            let titleSearch
+            // let brake = false
+            do {
+              console.log("entrei no loop")
+              titleSearch = await conversationTitle(page, conversationElements, count)
+              console.log(titleSearch)
+              console.log(conversationData.conversation)
+              if (titleSearch === conversationData.conversation) {
+                console.log("entrei no if")
+                // Clica na conversa
+                await conversationElements[count].click()
+
+                console.log(messageData.conversationId, messageData.message)
+                // messageData.conversationId == null
+                // messageData.conversationId == null
+                break
+              }
+              count++
+            } while (true)
+          } catch (e) {
+            console.log(e)
           }
-          await conversation.click()
+        } */
+        // Loop para varredura constate
+        do {
+          await new Promise((resolve) => setTimeout(resolve, 800))
 
-          // Fecha o banner de download apenas na primeira execução
-          if (i === 0) await closeDownloadBannerIfExists(page)
+          const conversationElements = await page.$$(SELECTOR_TITLES)
+          console.log(`Encontradas ${conversationElements.length} conversas.`)
 
-          // Aguarda o carregamento das mensagens
-          await new Promise((resolve) => setTimeout(resolve, 1500))
+          for (let i = 0; i < conversationElements.length; i++) {
+            const title = await conversationTitle(page, conversationElements, i)
 
-          // Busca o texto da mensagem
-          const getMessages = await callMessages(page)
+            await insertTitleinTb_conversations(title)
 
-          // Busca na tb_conversations o id
-          const { id } = await db.get("SELECT id FROM tb_conversations WHERE conversation = ?", title)
+            // Busca novamente o elemento pelo título antes de clicar
+            const safeTitle = title.replace(/"/g, '"')
+            const conversation = await page.$(`${SELECTOR_TITLES}[title="${safeTitle}"]`)
+            if (!conversation) {
+              console.log(`Conversa com título "${title}" não encontrada para clicar.`)
+              continue
+            }
+            await conversation.click()
 
-          // Limpa as mensagens antigas da conversa antes de inserir as novas
-          await db.run("DELETE FROM tb_messages WHERE id_conversation = ?", id)
-          for (const message of getMessages) {
-            await db.run("INSERT INTO tb_messages (id_conversation, sender, message, datetime) VALUES (?, ?, ?, ?)", id, message.sender, message.text, message.datetime)
+            // Fecha o banner de download apenas na primeira execução
+            if (i === 0) await closeDownloadBannerIfExists(page)
+
+            // Aguarda o carregamento das mensagens
+            await new Promise((resolve) => setTimeout(resolve, 800))
+
+            // Busca o texto da mensagem
+            const getMessages = await callMessages(page)
+
+            // Busca na tb_conversations o id
+            const { id } = await db.get("SELECT id FROM tb_conversations WHERE conversation = ?", title)
+
+            // Limpa as mensagens antigas da conversa antes de inserir as novas
+            await db.run("DELETE FROM tb_messages WHERE id_conversation = ?", id)
+            for (const message of getMessages) {
+              await db.run("INSERT INTO tb_messages (id_conversation, sender, message, datetime) VALUES (?, ?, ?, ?)", id, message.sender, message.text, message.datetime)
+            }
           }
-        }
+          verificationOfMessage = messageData.message === null
+        } while (verificationOfMessage)
+        console.log("sai da varredura")
       }
-
-      
     } catch (error) {
       console.error("Erro na automação do WhatsApp:", error)
       await new Promise((resolve) => setTimeout(resolve, 5000))

@@ -1,6 +1,7 @@
 import fastify from "fastify";
 import { callNewPage } from "./functions/call-new-page.js";
 import { getDataRoute } from "./routes/getDataRoute.js";
+import { sendMessageRoute } from "./routes/sendMessage.js";
 
 const app = fastify();
 
@@ -8,6 +9,7 @@ const app = fastify();
 callNewPage();
 
 app.register(getDataRoute);
+app.register(sendMessageRoute);
 
 app.listen({ port: 3333 })
   .then(() => {
