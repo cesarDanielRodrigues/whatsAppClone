@@ -12,7 +12,7 @@ app.register(cors, {
 });
 
 // Inicia o Whatsapp assim que o servidor iniciar
-// callNewPage();
+callNewPage();
 
 app.register(getDataRoute);
 app.register(sendMessageRoute);

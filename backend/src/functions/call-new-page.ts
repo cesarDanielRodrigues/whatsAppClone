@@ -17,8 +17,6 @@ const messageData: { conversationId: number | null; message: string | null } = {
 export const MessageConversation = (conversationId: number, message: string) => {
   messageData.conversationId = conversationId
   messageData.message = message
-
-  console.log("teste")
 }
 
 const conversationTitle = async (page: Page, elements, index) => {
@@ -114,9 +112,13 @@ export const callNewPage = async () => {
         await page.waitForSelector(SELECTOR_TITLES)
         let verificationOfMessage = messageData.message === null
 
-        /*if (!verificationOfMessage) {
+        if (!verificationOfMessage) {
           try {
-            console.log("Tentando enviar mensagem...")
+            console.log("Tentando enviar mensagem...");
+
+            // NÃO recarrega a página!
+            // Aguarda a lista de conversas aparecer
+            await page.waitForSelector(CHAT_LIST_SELECTOR);
 
             // Scrolla para o topo da lista de conversas
             await page.evaluate((selector) => {
@@ -126,38 +128,64 @@ export const callNewPage = async () => {
               }
             }, CHAT_LIST_SELECTOR);
 
-            // Busca a conversa pelo ID
-            const conversationData = await db.get("SELECT conversation FROM tb_conversations WHERE id = ?", messageData.conversationId)
+            // Aguarda um pouco para garantir que as conversas carregaram
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            // Busca a conversa pelo ID no banco
+            const conversationData = await db.get("SELECT conversation FROM tb_conversations WHERE id = ?", messageData.conversationId);
             if (!conversationData) {
-              throw new Error(`Conversa com ID ${messageData.conversationId} não encontrada no banco de dados`)
+              throw new Error(`Conversa com ID ${messageData.conversationId} não encontrada no banco de dados`);
             }
 
-            const conversationElements = await page.$$(SELECTOR_TITLES)
+            let found = false;
+            let tentativas = 0;
+            while (!found && tentativas < 10) {
+              // Recarrega os elementos da lista de conversas
+              const conversationElements = await page.$$(SELECTOR_TITLES);
 
-            let count = 0
-            let titleSearch
-            // let brake = false
-            do {
-              console.log("entrei no loop")
-              titleSearch = await conversationTitle(page, conversationElements, count)
-              console.log(titleSearch)
-              console.log(conversationData.conversation)
-              if (titleSearch === conversationData.conversation) {
-                console.log("entrei no if")
-                // Clica na conversa
-                await conversationElements[count].click()
-
-                console.log(messageData.conversationId, messageData.message)
-                // messageData.conversationId == null
-                // messageData.conversationId == null
-                break
+              for (let count = 0; count < conversationElements.length; count++) {
+                const titleSearch = await conversationTitle(page, conversationElements, count);
+                if (titleSearch === conversationData.conversation) {
+                  await conversationElements[count].click();
+                  found = true;
+                  break;
+                }
               }
-              count++
-            } while (true)
+
+              if (!found) {
+                // Scrolla mais para baixo e aguarda carregar mais conversas
+                await page.evaluate((selector) => {
+                  const chatList = document.querySelector(selector);
+                  if (chatList) {
+                    chatList.scrollTop += 300;
+                  }
+                }, CHAT_LIST_SELECTOR);
+                await new Promise(resolve => setTimeout(resolve, 1000));
+              }
+              tentativas++;
+            }
+
+            if (!found) {
+              throw new Error("Conversa não encontrada após várias tentativas.");
+            }
+
+            // Aguarda o campo de mensagem estar disponível
+            const INPUT_SELECTOR = 'div[contenteditable="true"][data-tab="10"]';
+            await page.waitForSelector(INPUT_SELECTOR);
+
+            // Digita e envia a mensagem
+            await page.type(INPUT_SELECTOR, messageData.message || "");
+            await page.keyboard.press("Enter");
+
+            // Limpa o messageData
+            messageData.conversationId = null;
+            messageData.message = null;
+
+            console.log("Mensagem enviada com sucesso!");
           } catch (e) {
-            console.log(e)
+            console.log(e);
           }
-        } */
+        } 
         // Loop para varredura constate
         do {
           await new Promise((resolve) => setTimeout(resolve, 800))

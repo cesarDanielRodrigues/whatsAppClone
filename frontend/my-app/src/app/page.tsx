@@ -19,7 +19,7 @@ interface Conversation {
 
 export default function Home() {
   const [conversation, setConversation] = useState<Conversation[]>([])
-  const [selectedId, setSelectedId] = useState<string | number | null>(null)
+  const [selectedId, setSelectedId] = useState<number>(0)
   const [messages, setMessages] = useState<Message[]>([])
   const [allMessages, setAllMessages] = useState<Message[]>([])
 
@@ -57,7 +57,7 @@ export default function Home() {
           })}
         </nav>
       </aside>
-      <Messages messages={messages} />
+      <Messages messages={messages} conversationId={selectedId ?? undefined} />
     </main>
   )
 }
