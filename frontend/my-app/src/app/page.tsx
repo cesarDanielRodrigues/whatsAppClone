@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import Messages from "./Messages"
 
 interface Message {
-  id: string | number
+  id: number
   message: string
   sender?: string
   datetime?: string
@@ -12,7 +12,7 @@ interface Message {
 }
 
 interface Conversation {
-  id: string | number
+  id: number
   conversation: string
   messages: Message[]
 }
@@ -24,18 +24,29 @@ export default function Home() {
   const [allMessages, setAllMessages] = useState<Message[]>([])
 
   useEffect(() => {
+    let interval: NodeJS.Timeout
     const fetchData = async () => {
       const response = await fetch("http://localhost:3333/")
       const data = await response.json()
       setConversation(data.conversations)
       setAllMessages(data.messages)
+      if (selectedId) {
+        const filtered = data.messages.filter((msg: Message) => String(msg.id_conversation) === String(selectedId))
+        setMessages(filtered)
+      } else {
+        setMessages([])
+      }
     }
     fetchData()
-    const interval = setInterval(fetchData, 2000)
-    return () => clearInterval(interval)
-  }, [])
+    if (selectedId) {
+      interval = setInterval(fetchData, 2000)
+    }
+    return () => {
+      if (interval) clearInterval(interval)
+    }
+  }, [selectedId])
 
-  const handleSelect = (id: string | number) => {
+  const handleSelect = (id: number) => {
     setSelectedId(id)
     const filtered = allMessages.filter((msg: Message) => String(msg.id_conversation) === String(id))
     setMessages(filtered)
