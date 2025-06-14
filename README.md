@@ -1,7 +1,5 @@
-# whatsApp Clone
+# WhatsApp Clone
 
-
-<img src="./assets/print_home.png" alt="Exemplo home">
 
 >whatsApp Clone é uma simulação simples do What's App Web que funciona junto de um What's App Original aberto pela lib Puppeteer.
 
