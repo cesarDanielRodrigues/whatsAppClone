@@ -1,12 +1,18 @@
 import fastify from "fastify";
+import cors from '@fastify/cors';
 import { callNewPage } from "./functions/call-new-page.js";
 import { getDataRoute } from "./routes/getDataRoute.js";
 import { sendMessageRoute } from "./routes/sendMessage.js";
 
 const app = fastify();
 
+// Habilita CORS para todas as origens
+app.register(cors, {
+  origin: true
+});
+
 // Inicia o Whatsapp assim que o servidor iniciar
-callNewPage();
+// callNewPage();
 
 app.register(getDataRoute);
 app.register(sendMessageRoute);
